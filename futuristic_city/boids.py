@@ -2,7 +2,7 @@ bl_info = {
     "name":"Futuristic Building Generator",
     "author":"Yifei Shen",
     "version":(1,0),
-    "blender":(2,93,0),
+    "blender":(3,0,0),
     "location":"3D View > Tools",
     "description":"Creating futuristic buildings procedurally",
     "warning":"",

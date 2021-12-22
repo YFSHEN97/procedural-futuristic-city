@@ -15,7 +15,7 @@ buildings.
 ## Boid Animation
 Clicking 'Generate full city' will create the roads, buildings, and boids which fly around the city. The camera will be scripted to follow one of the boids. Once the city is generated, clicking the animation play button will make the boids fly around the city. You may want to click View->Frame All before doing this in order to see the boids better. This is one way to watch the animation, looking at the city as a whole.
 
-A more fun way of watching the boid animation is from the point of view of the camera. By clicking the 'Toggle the camera view' button on the right side of your viewport (the standard Blender button with shortcat Numpad 0), you can set your viewport to follow the camera view. Since the camera follows one of the boids, pressing play will play a much more fun animation, in which you will get a flying view of the city.
+A more fun way of watching the boid animation is from the point of view of the camera. By clicking the 'Toggle the camera view' button on the right side of your viewport (the standard Blender button with shortcat Numpad 0), you can set your viewport to follow the camera view. Since the camera follows one of the boids, pressing play will play a much more fun animation, in which you will get a flying view of the city.
 
 ## Parameters:
 The meaning and effect of all the parameters are explained in the tooltip that 
