@@ -21,3 +21,10 @@ A more fun way of watching the boid animation is from the point of view of the c
 The meaning and effect of all the parameters are explained in the tooltip that 
 appears if you hover over them. You are also welcome to generate the model as 
 often as you like and see for yourself what it looks like!
+
+## Videos:
+While a complete video of our project is unfortunately too computationally expensive, here are some intermediate videos. These do not have the Voronoi textures we wrote, since they take too long to render for the full city.
+
+Firstly, the [partial demo](https://youtu.be/80W_cSkcwmo) shows the flying motion of the boids, as seen from the camera.
+
+Secondly, the [Blender demonstration](https://www.youtube.com/watch?v=p91UskqbARY) shows a global view of the boids flying, seen in the Blender viewport.
