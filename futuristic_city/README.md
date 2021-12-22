@@ -28,3 +28,5 @@ While a complete video of our project is unfortunately too computationally expen
 Firstly, the [partial demo](https://youtu.be/80W_cSkcwmo) shows the flying motion of the boids, as seen from the camera.
 
 Secondly, the [Blender demonstration](https://www.youtube.com/watch?v=p91UskqbARY) shows a global view of the boids flying, seen in the Blender viewport.
+
+Finally, [here](https://www.youtube.com/watch?v=LjG8hPaMy_M) is a very fun animation clip.
