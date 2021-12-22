@@ -14,13 +14,14 @@ bl_info = {
 import bpy
 import bmesh
 from math import pow
+from random import uniform
 from mathutils import Vector
 import numpy as np
 
 RANGE = 20.0
 SPEED = 20.0
-VELOCITY_STEADY_FRAMES = 5 # Boid changes its velocity every n frames
-GOALS = {0: (0, 20, 20), 30: (0, -20, -20), 240: (20, 20, 20)} # Points boids aim towards at certain frames
+VELOCITY_STEADY_FRAMES = 20 # Boid changes its velocity every n frames
+GOALS = {0: (45, 195, 40), 60: (20, 20, 10), 150: (175, 45, 0), 300: (205, 65, 55)} # Points boids aim towards at certain frames
 CAMERA = None
 
 # Returns length of a vector
@@ -152,7 +153,7 @@ class BoidNavigationSystem:
         
         #if boid.Number == 1:
         #print(normalize(totalVel / float(numFriends)))
-        return normalize(totalVel / float(numFriends))
+        return normalize((totalVel / float(numFriends)) - boid.velocity)
     
     # Try go to center nearby flockmates
     def flockCentering(self, boid):
@@ -173,12 +174,12 @@ class BoidNavigationSystem:
         if numFriends == 0:
             return totalPos
         
-        return normalize(totalPos / float(numFriends))
+        return normalize((totalPos / float(numFriends)) - boid.position)
     
     # Combines independent boid desires into one acceleration
     def combineBehaviours(self, goal, ca, vm, fc):
         #kCa, kVm, kFc = 0.2, 0.4, 0.95
-        kGoal, kCa, kVm, kFc = 1.0, 0.1, 0.4, 0.95
+        kGoal, kCa, kVm, kFc = 0.8, 0.4, 0.1, 0.2
         combined = (kGoal*goal + kCa*ca + kVm*vm + kFc*fc)
         
         return normalize(combined)
@@ -204,7 +205,7 @@ class Boid:
     #   Probably shouldn't be called every frame if your 
     #   acceleration computation is expensive
     def setNewAcceleration(self, newAcceleration):
-        self.acceleration = newAcceleration
+        self.acceleration = newAcceleration / 2.0
     
     # Takes accel, acceleration over the next dt seconds
     # Calculates and saves next pos and vel so they can be used messing
@@ -222,15 +223,15 @@ class Boid:
         newVel = self.velocity + self.acceleration * dt
 
         
-        '''
+
         # In theory, capping the maximum speed in this way should be better
         # Draw a diagram to see why. But in practice, it doesn't make that
         # much of a difference.
         maxSpeed = dt * SPEED
         if length(newVel) > maxSpeed:
             newVel = normalize(newVel) * dt * SPEED
-        '''
-        newVel *= dt * SPEED / length(newVel)
+
+        #newVel *= dt * SPEED / length(newVel)
         self.nextVel = newVel
     
     # Set the boid's current position as a keyframe
@@ -263,8 +264,14 @@ def deleteAllBoids():
 def createBoids(numBoids, startPoint, frames, dt, buildingSpaces):
     boids = []
     for boid in range(numBoids):
-        startPos = 2 * np.random.rand(3) - np.array((1, 1, 1)) + startPoint     # MOVE THIS IF IT'S INSIDE A BUILDING!!
-        newBoid = Boid(startPos, np.array((0, 0, 0))) 
+        startX = uniform(-10.0, 10.0) + startPoint[0]
+        startY = uniform(-10.0, 10.0) + startPoint[1]
+        startZ = uniform(-3.0, 3.0) + startPoint[2]  # Start them all at a similar height
+        startPos = np.array((startX, startY, startZ))
+        startVel = normalize(GOALS[0] - startPos) * SPEED * dt
+
+        #startPos = 2 * np.random.rand(3) - np.array((1, 1, 1)) + startPoint     # MOVE THIS IF IT'S INSIDE A BUILDING!!
+        newBoid = Boid(startPos, startVel) 
         boids.append(newBoid)
         
     # Setup animation system
