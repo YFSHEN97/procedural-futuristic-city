@@ -14,12 +14,14 @@ bl_info = {
 import bpy
 import bmesh
 from math import pow
+from mathutils import Vector
 import numpy as np
 
 RANGE = 20.0
 SPEED = 20.0
 VELOCITY_STEADY_FRAMES = 5 # Boid changes its velocity every n frames
 GOALS = {0: (0, 20, 20), 30: (0, -20, -20), 240: (20, 20, 20)} # Points boids aim towards at certain frames
+CAMERA = None
 
 # Returns length of a vector
 def length(vector):
@@ -33,6 +35,36 @@ def normalize(vector):
         return np.array((0, 0, 0))
     
     return vector / norm
+
+# Controls the camera object so we can place it on a boid
+class Camera:
+    def __init__(self, boidToFollow):
+        self.body = bpy.data.objects['Camera']
+        self.boid = boidToFollow
+
+    # Updates the position and direction of the camera to match the boid
+    def updateToMatchBoid(self):
+        # Place camera slightly in front of the boid
+        boidRadius = 0.5
+        boidVelocity = normalize(self.boid.velocity)
+        position = self.boid.position + boidVelocity * (boidRadius + 0.1)
+
+        # Point camera in direction of boid velocity
+        direction = Vector(boidVelocity)
+        rotation = direction.to_track_quat('-Z', 'Y')
+        self.body.rotation_euler = rotation.to_euler()
+
+        '''
+        x, y, z = position.tolist()
+        rotX = atan(z / y)
+        rotY = atan(x / z)
+        rotZ = atan(y / x)
+        '''
+
+        # Save this key frame (requires global frame to have been set)
+        self.body.location = position.tolist()
+        self.body.keyframe_insert(data_path='location')
+        self.body.keyframe_insert(data_path='rotation_euler')
 
 # A brain that takes a boid and calculates its next velocity
 class BoidNavigationSystem:
@@ -217,9 +249,13 @@ def createBoids(numBoids, startPoint, frames, dt, buildingSpaces):
         newBoid = Boid(startPos, np.array((0, 0, 0))) 
         boids.append(newBoid)
         
+    # Setup animation system
     navSystem = BoidNavigationSystem(boids, buildingSpaces)
     bpy.context.scene.frame_start = 0
     bpy.context.scene.frame_end = frames
+
+    # Create camera attached to boid 1
+    CAMERA = Camera(boids[0])
     
     for frame in range(frames):
         #print('Frame ' + str(frame))
@@ -243,6 +279,10 @@ def createBoids(numBoids, startPoint, frames, dt, buildingSpaces):
         for boid in boids:
             #print(boid.velocity)
             boid.setNextState()
+
+        # Set new pos and rot for camera
+        CAMERA.updateToMatchBoid()
+
         #print('')
             
 # Takes a list of all building spaces so the boids can fly around them
