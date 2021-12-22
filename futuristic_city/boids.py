@@ -64,7 +64,7 @@ class Camera:
         # Save this key frame (requires global frame to have been set)
         self.body.location = position.tolist()
         self.body.keyframe_insert(data_path='location')
-        self.body.keyframe_insert(data_path='rotation_euler')
+        #self.body.keyframe_insert(data_path='rotation_euler')
 
 # A brain that takes a boid and calculates its next velocity
 class BoidNavigationSystem:
@@ -189,6 +189,7 @@ class Boid:
     def __init__(self, startPos, startVelocity):
         self.velocity = startVelocity
         self.position = startPos
+        self.acceleration = None
         self.body = self.createBody()
         self.id = Boid.Number
         Boid.Number += 1
@@ -198,20 +199,27 @@ class Boid:
         newObject = bpy.context.active_object
         newObject.name = 'Boid ' + str(self.Number)
         return newObject
+
+    # Sets the boid's acceleration for the next x frames.
+    #   Probably shouldn't be called every frame if your 
+    #   acceleration computation is expensive
+    def setNewAcceleration(self, newAcceleration):
+        self.acceleration = newAcceleration * 10
     
     # Takes accel, acceleration over the next dt seconds
-    # Calculates and saves next pos and vel so they can be used
-    def saveNextState(self, accel, dt):
-        accel *= 10
+    # Calculates and saves next pos and vel so they can be used messing
+    #   The results must be stored in this intermediate way to avoid
+    #   up other boids' calculations during the same frame. The caller 
+    #   will decide when to actually enact the new position and velocity
+    def saveNextState(self, dt):
+        # Compute next position
         # suvat: s = ut + (at^2)/2
-        disp = self.velocity * dt + (accel * (dt ** 2)) / 2
-        #print("disp: " + str(disp))
+        disp = self.velocity * dt + (self.acceleration * (dt ** 2)) / 2
         newPos = self.position + disp
         self.nextPos = newPos
         
-        #print(accel)
-        newVel = self.velocity + accel * dt
-        #print(newVel)
+        # Compute next velocity
+        newVel = self.velocity + self.acceleration * dt
         newVel *= dt * SPEED / length(newVel)
         self.nextVel = newVel
     
@@ -268,12 +276,13 @@ def createBoids(numBoids, startPoint, frames, dt, buildingSpaces):
             if newGoal:
                 boid.setNewGoal(newGoal)
             
-            # Change velocity if we've reached assessment frame
+            # Update boid
             if frame % VELOCITY_STEADY_FRAMES == 0:
+                # Calculate new acceleration if we've reached assessment frame
                 accel = navSystem.calculateAcceleration(boid)
-                boid.saveNextState(accel, dt)
-            else:
-                boid.saveNextState(np.array((0, 0, 0)), dt)
+                boid.setNewAcceleration(accel)
+            # Update boid position and velocity 
+            boid.saveNextState(dt)
             
         # Set new pos and vel for each boid
         for boid in boids:
