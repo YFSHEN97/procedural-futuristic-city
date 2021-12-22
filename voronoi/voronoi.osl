@@ -1,0 +1,356 @@
+#include <stdosl.h>
+
+
+/****** 2D Voronoi Textures ******
+ * the input point is given by the mapped UV coordinates
+ *********************************/
+
+// helper function to compute 2D distances
+// wrap-around is implemented to make sure that texture is seamless
+float voronoi_distance_2d(
+    float px,
+    float py,
+    int pc,
+    int pr,
+    int nc,
+    int nr,
+    int n,
+    float randomness,
+    string metric
+) {
+    // wrap around
+    int nrr = (nr < 0) ? (nr + n) : ((nr >= n) ? (nr - n) : nr);
+    int ncc = (nc < 0) ? (nc + n) : ((nc >= n) ? (nc - n) : nc);
+    // hash out the seed point in the neighbor cell
+    float nx = hashnoise((float)ncc, (float)nrr) * randomness + ncc;
+    float ny = hashnoise(point((float)ncc, (float)nrr, 1.0)) * randomness + nrr;
+    // compute distance
+    float dx;
+    float dy;
+    if (nr < 0)
+        dy = n - ny + py;
+    else if (nr >= n)
+        dy = ny + n - py;
+    else
+        dy = abs(ny - py);
+    if (nc < 0)
+        dx = n - nx + px;
+    else if (nc >= n)
+        dx = nx + n - px;
+    else
+        dx = abs(nx - px);
+    if (metric == "Euclidean")
+        return length(vector(dx, dy, 0));
+    else if (metric == "Manhattan")
+        return dx + dy;
+    else if (metric == "Chebyshev")
+        return max(dx, dy);
+    else
+        return 0.0;
+}
+
+// 2D Voronoi texture, F1
+void Voronoi2D_F1(
+    float pu,          // u coordinate
+    float pv,          // v coordinate
+    int n,             // grid size
+    float randomness,  // randomness
+    vector scale,      // scale factors (x, y, z)
+    string metric,     // distance metric
+    output color Distance,
+    output color Color
+) {
+    // translate from UV [0,1] space to grid coordinate space
+    float px = fmod(pu / scale[0] * n, float(n));
+    float py = fmod(pv / scale[1] * n, float(n));
+    // find out the cell row and column index (r, c)
+    int pc = (int) (px);
+    int pr = (int) (py);
+    // search 3 * 3 neighborhood
+    float min_dist = 100.0;
+    int target_r, target_c;
+    for (int dr = -1; dr <= 1; dr++) {
+        for (int dc = -1; dc <= 1; dc++) {
+            // compute neighbor cell's row and column index
+            int nr = pr + dr;
+            int nc = pc + dc;
+            // compute distance
+            float dist = voronoi_distance_2d(px, py, pc, pr, nc, nr, n, randomness, metric);
+            // compare against min
+            if (dist < min_dist) {
+                target_r = (nr < 0) ? (nr + n) : ((nr >= n) ? (nr - n) : nr);
+                target_c = (nc < 0) ? (nc + n) : ((nc >= n) ? (nc - n) : nc);
+                min_dist = dist;
+            }
+        }
+    }
+    if (metric == "Euclidean")
+        Distance = min_dist * M_SQRT1_2;
+    else if (metric == "Manhattan")
+        Distance = min_dist * 0.5;
+    else if (metric == "Chebyshev")
+        Distance = min_dist;
+    else
+        Distance = 0.0;
+    Color = color(
+        hashnoise((float)target_c, (float)target_r),
+        hashnoise(point((float)target_c, (float)target_r, 1.0)),
+        hashnoise(point((float)target_c, (float)target_r, 2.0))
+    );
+}
+
+// 2D Voronoi texture, F2
+void Voronoi2D_F2(
+    float pu,          // u coordinate
+    float pv,          // v coordinate
+    int n,             // grid size
+    float randomness,  // randomness
+    vector scale,      // scale factors (x, y, z)
+    string metric,     // distance metric
+    output color Distance,
+    output color Color
+) {
+    // translate from UV [0,1] space to grid coordinate space
+    float px = fmod(pu / scale[0] * n, float(n));
+    float py = fmod(pv / scale[1] * n, float(n));
+    // find out the cell row and column index (r, c)
+    int pc = (int) (px);
+    int pr = (int) (py);
+    // search 3 * 3 neighborhood
+    float min_dist_f1 = 100.0;
+    float min_dist_f2 = 100.0;
+    int target_r_f1, target_c_f1;
+    int target_r_f2, target_c_f2;
+    for (int dr = -1; dr <= 1; dr++) {
+        for (int dc = -1; dc <= 1; dc++) {
+            // compute neighbor cell's row and column index
+            int nr = pr + dr;
+            int nc = pc + dc;
+            // compute distance
+            float dist = voronoi_distance_2d(px, py, pc, pr, nc, nr, n, randomness, metric);
+            // compare against min
+            if (dist < min_dist_f1) {
+                min_dist_f2 = min_dist_f1;
+                min_dist_f1 = dist;
+                target_r_f2 = target_r_f1;
+                target_c_f2 = target_c_f1;
+                target_r_f1 = (nr < 0) ? (nr + n) : ((nr >= n) ? (nr - n) : nr);
+                target_c_f1 = (nc < 0) ? (nc + n) : ((nc >= n) ? (nc - n) : nc);
+            } else if (dist < min_dist_f2) {
+                min_dist_f2 = dist;
+                target_r_f2 = (nr < 0) ? (nr + n) : ((nr >= n) ? (nr - n) : nr);
+                target_c_f2 = (nc < 0) ? (nc + n) : ((nc >= n) ? (nc - n) : nc);
+            }
+        }
+    }
+    if (metric == "Euclidean")
+        Distance = min_dist_f2 * M_SQRT1_2;
+    else if (metric == "Manhattan")
+        Distance = min_dist_f2 * 0.5;
+    else if (metric == "Chebyshev")
+        Distance = min_dist_f2;
+    else
+        Distance = 0.0;
+    Color = color(
+        hashnoise((float)target_c_f2, (float)target_r_f2),
+        hashnoise(point((float)target_c_f2, (float)target_r_f2, 1.0)),
+        hashnoise(point((float)target_c_f2, (float)target_r_f2, 2.0))
+    );
+}
+
+
+/****** 3D Voronoi Textures ******
+ * the input point is given by its position, accessible from global P
+ *********************************/
+
+// helper function to compute 3D distances
+// no wrap-around necessary
+float voronoi_distance_3d(
+    point seed,
+    vector coord,
+    vector scale,
+    string metric
+) {
+    if (metric == "Euclidean")
+        return distance(coord / scale, seed);
+    else if (metric == "Manhattan")
+        return abs(coord.x / scale.x - seed.x) + abs(coord.y / scale.y - seed.y) + abs(coord.z / scale.z - seed.z);
+    else if (metric == "Chebyshev")
+        return max(abs(coord.x / scale.x - seed.x), max(abs(coord.y / scale.y - seed.y), abs(coord.z / scale.z - seed.z)));
+    else
+        return 0.0;
+}
+
+// 3D Voronoi texture, F1
+void Voronoi3D_F1(
+    vector coord,
+    float n,           // 3D grid cell size
+    float randomness,  // randomness
+    vector scale,      // scale factors (x, y, z)
+    string metric,     // distance metric
+    output color Distance,
+    output color Color
+) {
+    // find out the cell row and column index (r, c)
+    point ijk = floor(coord / scale / n);
+    // search 3 * 3 * 3 neighborhood
+    float min_dist = 10000.0;
+    point target;
+    for (int i = -1; i <= 1; i++) {
+        for (int j = -1; j <= 1; j++) {
+            for (int k = -1; k <= 1; k++) {
+                point neighbor_cell = ijk + vector(i, j, k);
+                point seed = n * (neighbor_cell + randomness * vector(
+                    hashnoise(neighbor_cell),
+                    hashnoise(neighbor_cell, 1.0),
+                    hashnoise(neighbor_cell, 2.0)));
+                float dist = voronoi_distance_3d(seed, coord, scale, metric);
+                if (dist < min_dist) {
+                    min_dist = dist;
+                    target = neighbor_cell;
+                }
+            }
+        }
+    }
+    if (metric == "Euclidean")
+        Distance = min_dist / sqrt(3) / n;
+    else if (metric == "Manhattan")
+        Distance = min_dist * 0.333 / n;
+    else if (metric == "Chebyshev")
+        Distance = min_dist / n;
+    else
+        Distance = 0.0;
+    Color = color(
+        hashnoise(target),
+        hashnoise(target, 1.0),
+        hashnoise(target, 2.0)
+    );
+}
+
+// 3D Voronoi texture, F2
+void Voronoi3D_F2(
+    vector coord,
+    float n,           // 3D grid cell size
+    float randomness,  // randomness
+    vector scale,      // scale factors (x, y, z)
+    string metric,     // distance metric
+    output color Distance,
+    output color Color
+) {
+    // find out the cell row and column index (r, c)
+    point ijk = floor(coord / scale / n);
+    // search 3 * 3 * 3 neighborhood
+    float min_dist_f1 = 10000.0, min_dist_f2 = 10000.0;
+    point target_f1, target_f2;
+    for (int i = -1; i <= 1; i++) {
+        for (int j = -1; j <= 1; j++) {
+            for (int k = -1; k <= 1; k++) {
+                point neighbor_cell = ijk + vector(i, j, k);
+                point seed = n * (neighbor_cell + randomness * vector(
+                    hashnoise(neighbor_cell),
+                    hashnoise(neighbor_cell, 1.0),
+                    hashnoise(neighbor_cell, 2.0)));
+                float dist = voronoi_distance_3d(seed, coord, scale, metric);
+                if (dist < min_dist_f1) {
+                    min_dist_f2 = min_dist_f1;
+                    min_dist_f1 = dist;
+                    target_f2 = target_f1;
+                    target_f1 = neighbor_cell;
+                } else if (dist < min_dist_f2) {
+                    min_dist_f2 = dist;
+                    target_f2 = neighbor_cell;
+                }
+            }
+        }
+    }
+    if (metric == "Euclidean")
+        Distance = min_dist_f2 / sqrt(3) / n;
+    else if (metric == "Manhattan")
+        Distance = min_dist_f2 * 0.333 / n;
+    else if (metric == "Chebyshev")
+        Distance = min_dist_f2 / n;
+    else
+        Distance = 0.0;
+    Color = color(
+        hashnoise(target_f2),
+        hashnoise(target_f2, 1.0),
+        hashnoise(target_f2, 2.0)
+    );
+}
+
+
+shader SeamlessVoronoi(
+    int   Order = 1,             // Fn, where n is the order
+                                 // only F1 and F2 are supported for now
+    int   Dimensions = 2,        // 2D or 3D texture
+                                 // only 2D and 3D are supported for now
+    int   Grid_Dim_2D = 5,       // number of cells along each dimension of the grid for 2D texture
+                                 // e.g. value of 5 divides the UV unit square into a 5*5 grid of 25 cells
+                                 // each cell contains a seed point initially placed at the center
+                                 // the Randomness factor controls how much seed points are jittered from center
+    float Cell_Size_3D = 0.1,    // width, height, and depth of each cell for 3D texture (only 0.05 to 50)
+                                 // e.g. value of 1 divides whole 3D space into cells of 1*1*1 unit length
+                                 // each cell contains a seed point initially placed at the center
+                                 // the Randomness factor controls how much seed points are jittered from center
+    float Randomness = 1.0,      // how much the seed points jitter (only 0.0 to 1.0 supported)
+                                 // in the limit of 0.0, the grid cells become completely regular
+    vector Scale = 1.0,          // how much the texture is scaled in space
+                                 // e.g. if x = 2 then the texture is stretched 2 times in the x-dimension
+                                 // for 2D textures, the z value is ignored, and x/y is used to scale u/v
+    vector UV = 0.0,             // UV coordinates of the point being rendered (used for 2D)
+                                 // can receive input from other Blender shader nodes
+                                 // can be used to blur the texture
+    vector Vector = P,           // 3D position of the point being rendered (used for 3D)
+                                 // can receive input from other Blender shader nodes
+                                 // can be used to blur the texture
+    string Metric = "Euclidean", // how distance is evaluated
+                                 // possible values are "Euclidean", "Manhattan", "Chebyshev"
+    output color Distance = 0,   // outputs the value of the Fn function
+    output color Color = 0       // outputs a random color assigned based on seed point
+) {
+    vector coord = Vector;
+
+    int order = clamp(Order, 1, 2);
+    if (Order < 1 || Order > 2)
+        warning("Only 1st and 2nd orders are supported, clamped");
+
+    int dimensions = clamp(Dimensions, 2, 3);
+    if (Dimensions < 2 || Dimensions > 3)
+        warning("Only 2 and 3 dimensions are supported, clamped");
+
+    int grid_dim_2d = clamp(Grid_Dim_2D, 3, 30);
+    if (Grid_Dim_2D < 3 || Grid_Dim_2D > 30)
+        warning("2D Grid dim out of range [3, 30], clamped");
+
+    float cell_size_3d = clamp(Cell_Size_3D, 0.05, 50.0);
+    if (Cell_Size_3D < 0.05 || Cell_Size_3D > 50.0)
+        warning("3D Cell size out of range [0.05, 50.0], clamped");
+
+    float randomness = clamp(Randomness, 0.0, 1.0);
+    if (Randomness < 0.0 || Randomness > 1.0)
+        warning("Randomness value out of range [0.0, 1.0], clamped");
+
+    vector scale = Scale;
+    if (scale[0] <= 0 || scale[1] <= 0 || scale[2] <= 0) {
+        warning("Scale values must all be positive, setting to default");
+        scale = 1.0;
+    }
+
+    string metric = Metric;
+    if (Metric != "Euclidean" && Metric != "Manhattan" && Metric != "Chebyshev") {
+        warning("Unsupported distance metric, defaulting to Euclidean");
+        metric = "Euclidean";
+    }
+
+    if (dimensions == 2) {
+        if (order == 1)
+            Voronoi2D_F1(UV[0], UV[1], grid_dim_2d, randomness, scale, metric, Distance, Color);
+        else
+            Voronoi2D_F2(UV[0], UV[1], grid_dim_2d, randomness, scale, metric, Distance, Color);
+    } else {
+        if (order == 1)
+            Voronoi3D_F1(coord, cell_size_3d, randomness, scale, metric, Distance, Color);
+        else
+            Voronoi3D_F2(coord, cell_size_3d, randomness, scale, metric, Distance, Color);
+    }
+}

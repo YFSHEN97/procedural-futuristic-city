@@ -1,0 +1,18 @@
+Futuristic City Generator
+
+Instructions:
+You can install this plugin, activate it in Preferences, and find it in the 
+viewport sidebar. If you can't find it, make sure that you are in "Object 
+Mode".
+
+Usage:
+There are two modes available. You can either generate a single building (you 
+may specify all the parameters) or you can create a full city. Our program 
+makes a full city by first creating a road network using L-systems and defining
+empty plots of land that are subsequently filled with randomly produced 
+buildings.
+
+Parameters:
+The meaning and effect of all the parameters are explained in the tooltip that 
+appears if you hover over them. You are also welcome to generate the model as 
+often as you like and see for yourself what it looks like!
