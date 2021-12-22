@@ -13,14 +13,14 @@ bl_info = {
 
 import bpy
 import bmesh
-from math import pow
+from math import pow, sqrt
 from random import uniform
 from mathutils import Vector
 import numpy as np
 
 RANGE = 20.0
 SPEED = 20.0
-VELOCITY_STEADY_FRAMES = 20 # Boid changes its velocity every n frames
+VELOCITY_STEADY_FRAMES = 5 # Boid changes its velocity every n frames
 GOALS = {0: (45, 195, 40), 60: (20, 20, 10), 150: (175, 45, 0), 300: (205, 65, 55)} # Points boids aim towards at certain frames
 CAMERA = None
 
@@ -78,14 +78,17 @@ class BoidNavigationSystem:
     #   whether they are about to collide with a building
     # obstacles: list of (coords, (x_width, y_width), height) for each building
     def initialiseObstacleStructures(self, obstacles):
-        pass
+        self.buildingsByX = [(obs[0][0], obs) for obs in obstacles]
+        self.buildingsByY = [(obs[0][1], obs) for obs in obstacles]
+        self.buildingsByX.sort(key = lambda obs: obs[0])
+        self.buildingsByY.sort(key = lambda obs: obs[1])
     
     def calculateAcceleration(self, boid):
         goal = self.goalFollowing(boid)
-        ca = self.collisionAvoidance(boid)
+        ca, imminentCollision = self.collisionAvoidance(boid)
         vm = self.velocityMatching(boid)
         fc = self.flockCentering(boid)
-        return self.combineBehaviours(goal, ca, vm, fc)
+        return self.combineBehaviours(goal, ca, vm, fc, imminentCollision)
     
     # Try fly towards the goal
     def goalFollowing(self, boid):
@@ -101,8 +104,8 @@ class BoidNavigationSystem:
 
         # Prioritise city avoidance if it exists 
         if buildingAvoidance is not None:                           # CHANGE WEIGHTS TO PRIORITISE CITY AVOIDANCE
-            return buildingAvoidance
-        return boidAvoidance
+            return buildingAvoidance, True
+        return boidAvoidance, False
 
     # Return vector for avoiding other boids
     def boidAvoidance(self, boid):
@@ -122,6 +125,33 @@ class BoidNavigationSystem:
 
     # Return vector for avoiding buildings and floor
     def cityAvoidance(self, boid):
+        nearbyBuildings = []
+        xPos, yPox = boid.position[0], boid.position[1]
+        alertDistance = 10.0
+        # Search for nearby buildings by x and y coordinate
+        for building in self.buildingsByX:
+            if abs(building[0] - xPos) < alertDistance:
+                nearbyBuildings.append(building[1])
+        for building in self.buildingsByY:
+            if abs(building[0] - xPos) < alertDistance:
+                nearbyBuildings.append(building[1])
+
+        # For each nearby building, check if we're going to hit it
+        buildingAhead, buildingDist = None, float('inf')
+        for building in nearbyBuildings:
+            willHit, dist = self.willHitBuilding(boid, building)
+            if not willHit:
+                continue
+
+            if dist < buildingDist and building != buildingAhead:
+                buildingAhead = building
+                buildingDist = dist
+
+        if buildingAhead is None:
+            return None
+
+        # If we're going to hit a building, turn right or left
+        return normalize(np.cross(boid.velocity, np.array((1, 0, 0))))   # THIS FAILS IF A COMPONENT IS 0
         # Calculate all city squares we're hitting in the near future
         # Extract all buildings in all those squares
         # For each buildling
@@ -130,7 +160,55 @@ class BoidNavigationSystem:
 
         # For the nearest collision:
         #   Return normal at that point
-        return None
+
+    # Calculates whether the boid will hit the building, and if so, the distance to collision
+    #   Building is (center, (widthx, widthy), height)
+    #   Treats building as a cylinder
+    #   Returns whether it will hit and the distance to the hit
+    def willHitBuilding(self, boid, building):
+        ALERT_RANGE = 10.0
+
+        r = max(building[1])    # Radius of cylinder
+        o = boid.position   # Ray origin
+        c = building[0]     # Building center
+        d = boid.velocity   # Ray direction
+
+        fx = o[0] - c[0]
+        fy = o[1] - c[1]
+
+        # Quadratic equation
+        a = pow(d[0], 2) + pow(d[1], 1)
+        b = 2*fx*d[0] + 2*fy*d[1]
+        c = pow(fx, 2) + pow(fy, 2) - pow(r, 2)
+
+        # Solve
+        discr = pow(b, 2) - 4*a*c
+        if discr < 0:
+            return False, None
+        discr = sqrt(discr)
+        t1 = (-b + discr) / (2*a)
+        t2 = (-b - discr) / (2*a)
+        solnSmall = min(t1, t2)
+        solnBig = max(t1, t2)
+        soln = None
+        if solnBig < 0:
+            soln = None
+        elif solnSmall < 0:
+            soln = solnBig
+        else:
+            soln = solnSmall
+
+        # Check hits in reasonable distance
+        if soln is None or soln > ALERT_RANGE:
+            return False, None
+
+        # Check hits within bounds of cylinder
+        height = building[2]
+        hitPoint = o + d * soln
+        if hitPoint[2] < 0 or hitPoint[2] > height:
+            return False, None
+        #print(soln)
+        return True, soln
      
     # Try match velocity with neighbours       
     def velocityMatching(self, boid):
@@ -177,9 +255,12 @@ class BoidNavigationSystem:
         return normalize((totalPos / float(numFriends)) - boid.position)
     
     # Combines independent boid desires into one acceleration
-    def combineBehaviours(self, goal, ca, vm, fc):
+    def combineBehaviours(self, goal, ca, vm, fc, imminentCollision):
         #kCa, kVm, kFc = 0.2, 0.4, 0.95
         kGoal, kCa, kVm, kFc = 0.8, 0.4, 0.1, 0.2
+        if imminentCollision:
+            kCa = 1.5
+
         combined = (kGoal*goal + kCa*ca + kVm*vm + kFc*fc)
         
         return normalize(combined)
