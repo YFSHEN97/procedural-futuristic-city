@@ -5,6 +5,7 @@ from math import cos, sin, pi, acos, atan
 from mathutils import Vector
 
 from . fbsweep_gen import sweep_skyscraper
+from . boids import generate_boids
 from bpy.props import PointerProperty
 from bpy.types import PropertyGroup, Operator
     
@@ -545,7 +546,8 @@ def createCityRoads():
     innerComponents = innerGridTraverser.getConnectedComponents(innerGraph)
     buildingSpaces += innerGridTraverser.getAllBuildingSpaces(innerComponents)
     
-    return buildingSpaces
+    cityWidth = 25*outerGridEdge
+    return buildingSpaces, cityWidth
     #print("\n\n\n")
     #print(*innerComponents, sep="\n")
 
@@ -671,7 +673,9 @@ class WM_OT_GenWholeCity(Operator):
 
     def execute(self, context):
         # first create road network and get a list of empty plots for buildings
-        buildingSpaces = createCityRoads()
+        buildingSpaces, cityWidth = createCityRoads()
+        actualBuildingPlots = []
+
         # for each plot, randomize the sweep parameters and create building stochastically
         for i in range(0, len(buildingSpaces), 3):
             shift, width, minh, maxh = buildingSpaces[i]
@@ -698,4 +702,12 @@ class WM_OT_GenWholeCity(Operator):
             props.bidirectional = random.choice([True, False])
             props.capped = True
             sweep_skyscraper(props, shift=Vector(shift))
+
+            # Save building dimensions for boid collision purposes
+            buildingPlot = (shift, (props.x_width, props.y_width), props.height)
+            actualBuildingPlots.append(buildingPlot)
+
+        # Generate boids flying around buildings
+        generate_boids(actualBuildingPlots, cityWidth)
+
         return {'FINISHED'}
