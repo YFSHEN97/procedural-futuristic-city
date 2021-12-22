@@ -64,7 +64,7 @@ class Camera:
         # Save this key frame (requires global frame to have been set)
         self.body.location = position.tolist()
         self.body.keyframe_insert(data_path='location')
-        #self.body.keyframe_insert(data_path='rotation_euler')
+        self.body.keyframe_insert(data_path='rotation_euler')
 
 # A brain that takes a boid and calculates its next velocity
 class BoidNavigationSystem:
@@ -204,7 +204,7 @@ class Boid:
     #   Probably shouldn't be called every frame if your 
     #   acceleration computation is expensive
     def setNewAcceleration(self, newAcceleration):
-        self.acceleration = newAcceleration * 10
+        self.acceleration = newAcceleration
     
     # Takes accel, acceleration over the next dt seconds
     # Calculates and saves next pos and vel so they can be used messing
@@ -220,6 +220,16 @@ class Boid:
         
         # Compute next velocity
         newVel = self.velocity + self.acceleration * dt
+
+        
+        '''
+        # In theory, capping the maximum speed in this way should be better
+        # Draw a diagram to see why. But in practice, it doesn't make that
+        # much of a difference.
+        maxSpeed = dt * SPEED
+        if length(newVel) > maxSpeed:
+            newVel = normalize(newVel) * dt * SPEED
+        '''
         newVel *= dt * SPEED / length(newVel)
         self.nextVel = newVel
     
@@ -283,6 +293,11 @@ def createBoids(numBoids, startPoint, frames, dt, buildingSpaces):
                 boid.setNewAcceleration(accel)
             # Update boid position and velocity 
             boid.saveNextState(dt)
+            '''
+            if boid.body.name == 'Boid 1':
+                print(boid.nextPos)
+                print(boid.nextVel)
+            '''
             
         # Set new pos and vel for each boid
         for boid in boids:
