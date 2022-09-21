@@ -9,7 +9,7 @@ And here is a render of the city using our custom voronoi materials:
 
 <img width="644" alt="voronoi city render" src="https://user-images.githubusercontent.com/17149360/191399265-6f95d0e4-3a99-40d7-a1d4-81f50507369b.png">
 
-The materials are unfortunately too expensive to render a full video, but they do create cool futuristic looks!
+The materials are unfortunately too expensive to render in a full video, but they do create cool futuristic looks!
 
 
 ## File Structure
